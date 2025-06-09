@@ -1,5 +1,6 @@
 ## glua
 glua adds functionality provided by [Garry's Mod](https://wiki.facepunch.com/gmod/) into plain lua.  
+  
 Syntax changes like `!=` are implemented by patching the lua source.  
 Functions are implemented using lua code or by using existing lua modules (installed with luarocks).  
   
