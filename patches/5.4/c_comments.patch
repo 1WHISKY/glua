@@ -1,0 +1,36 @@
+diff '--color=auto' -ur llex.c llex.c
+--- llex.c	2025-03-09 21:56:02.432220998 +0100
++++ llex.c	2025-03-09 22:57:36.738025122 +0100
+@@ -502,8 +502,30 @@
+       }
+       case '/': {
+         next(ls);
+-        if (check_next1(ls, '/')) return TK_IDIV;  /* '//' */
+-        else return '/';
++        if (ls->current != '/' && ls->current != '*') return '/';
++        if (ls->current == '*') { // long comment
++          next(ls);
++          int last = ls->current;
++          while(last != EOZ){
++            next(ls);
++            if (last == '*' && ls->current == '/'){
++              next(ls);
++              break;
++            }
++
++            last = ls->current;
++          }
++
++          if (ls->current == EOZ){
++            lexerror(ls, "unfinished long comment", 0);
++          }
++
++          break;
++        }else{  // short comment
++          while (!currIsNewline(ls) && ls->current != EOZ)
++            next(ls);  /* skip until end of line (or end of file) */
++          break;
++        }
+       }
+       case '~': {
+         next(ls);

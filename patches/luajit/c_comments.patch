@@ -1,0 +1,38 @@
+diff '--color=auto' -ur b/lj_lex.c a/lj_lex.c
+--- b/lj_lex.c	2025-02-23 00:48:53.306887403 +0100
++++ a/lj_lex.c	2025-02-23 01:25:27.047629215 +0100
+@@ -336,6 +336,34 @@
+       while (!lex_iseol(ls) && ls->c != LEX_EOF)
+ 	lex_next(ls);
+       continue;
++    case '/':
++      lex_next(ls);
++      if (ls->c != '/' && ls->c != '*') return '/';
++
++      if (ls->c == '*') {  /* Long comment */
++        lex_next(ls);
++        LexChar last = ls->c;
++        while (ls->c != LEX_EOF){
++            lex_next(ls);
++            if( last == '*' && ls->c == '/' ){
++                lex_next(ls);
++                break;
++            }
++
++            last = ls->c;
++        }
++
++        if( ls->c == LEX_EOF){
++            lj_lex_error(ls, TK_eof, LJ_ERR_XLCOM);
++        }
++
++        continue;
++      }
++
++      /* Short comment "//.*\n". */
++      while (!lex_iseol(ls) && ls->c != LEX_EOF)
++       lex_next(ls);
++    continue;
+     case '[': {
+       int sep = lex_skipeq(ls);
+       if (sep >= 0) {

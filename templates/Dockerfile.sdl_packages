@@ -1,0 +1,16 @@
+#sdl2
+RUN apk add sdl2-dev sdl2_image-dev sdl2_mixer-dev sdl2_net-dev sdl2_ttf-dev
+    # this provides the libs we need for sdl instead of installing xorg-server (~40mb)
+RUN cd /tmp && mkdir -p libs && \
+    apk fetch --recursive xorg-server && \
+    for a in *.apk; do tar -xf "$a"; done && \
+    cd usr/lib && mv libxcb.so* libmd.so* libbsd.so* libXext.so* libXdmcp.so* libXau.so* libX11.so* /tmp/libs/
+
+    # this is only required for audio support and adds ~5mb
+RUN cd /tmp && mkdir -p libs/pulseaudio && \
+    apk fetch --recursive libvorbis libasyncns dbus-libs opus libpulse libsndfile libogg libflac && \
+    for a in *.apk; do tar -xf "$a"; done && \
+    cd usr/lib && mv libvorbis* libasyncns* libdbus* libopus* libpulse* libsndfile* libogg* libFLAC* /tmp/libs/ && \
+    mv pulseaudio/libpulsecommon* /tmp/libs/pulseaudio/
+
+RUN luarocks install lua-sdl2

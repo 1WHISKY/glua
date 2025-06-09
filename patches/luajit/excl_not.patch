@@ -1,0 +1,14 @@
+diff '--color=auto' -ur lj_lex.c lj_lex.c
+--- lj_lex.c	2025-02-01 00:36:11.360131020 +0100
++++ lj_lex.c	2025-02-01 02:34:44.221260676 +0100
+@@ -391,6 +391,10 @@
+     case '~':
+       lex_next(ls);
+       if (ls->c != '=') return '~'; else { lex_next(ls); return TK_ne; }
++    case '!':
++      lex_next(ls);
++      if (ls->c == '=') { lex_next(ls); return TK_ne; }
++      return TK_not;
+     case ':':
+       lex_next(ls);
+       if (ls->c != ':') return ':'; else { lex_next(ls); return TK_label; }

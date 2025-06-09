@@ -1,0 +1,77 @@
+ARG LUAROCKS_VER=3.12.0
+ARG LUA_VER=---LUA-VER---    # where lua modules are installed
+
+
+FROM alpine:3.20 as lua
+---LUA-INSTALL---
+
+
+FROM lua as luarocks
+ARG LUAROCKS_VER
+RUN apk add wget cmake && \
+    wget https://luarocks.org/releases/luarocks-${LUAROCKS_VER}.tar.gz && \
+    tar zxpf luarocks-*.tar.gz && \
+    cd luarocks-* && \
+    ./configure && make && make install
+
+# feel free to remove the packages you dont need
+RUN apk add m4 bsd-compat-headers openssl-dev
+RUN luarocks install cqueues    # async and timers
+RUN luarocks install http       # http client and server
+
+# gzip decompression for http requests
+RUN apk add zlib-dev
+RUN luarocks install lua-zlib
+
+# file access, optional
+RUN luarocks install luafilesystem
+
+# sql
+RUN apk add sqlite-dev mysql-dev
+RUN luarocks install luasql-sqlite3
+RUN luarocks install luasql-mysql MYSQL_INCDIR=/usr/include/mysql
+
+# required for stdin console
+RUN luarocks install luasystem
+
+---EFFIL---
+
+---SDL-PACKAGES---
+
+ARG LUA_VER
+RUN mkdir -p /tmp/libs && mkdir -p /tmp/fonts && rm -rf /usr/local/share/lua/${LUA_VER}/luarocks
+ADD glua /usr/local/share/lua/${LUA_VER}/glua
+
+RUN cd /tmp && git clone https://github.com/Facepunch/garrysmod.git && \
+    mv garrysmod/garrysmod/lua /usr/local/share/lua/${LUA_VER}/glua/garrysmod && \
+    cd /usr/local/share/lua/${LUA_VER}/glua/garrysmod && \
+    rm -rf send.txt vgui skins postprocess menu entities drive autorun
+
+RUN if [ -f /usr/local/lib/lua/${LUA_VER}/SDL.so ]; then \
+        cp /tmp/garrysmod/garrysmod/resource/fonts/Roboto-Regular.ttf /tmp/fonts/ && \
+        cp /tmp/garrysmod/garrysmod/resource/fonts/Roboto.txt /tmp/fonts/; fi
+
+---LUA-COMPILE---
+
+
+
+FROM alpine:3.20
+RUN apk add --no-cache libstdc++
+
+COPY --from=lua /tmp/lua /usr/local/bin/
+
+ARG LUA_VER
+COPY --from=luarocks /usr/local/share/lua/${LUA_VER} /usr/local/share/lua/${LUA_VER}
+COPY --from=luarocks /usr/local/lib/lua/${LUA_VER}   /usr/local/lib/lua/${LUA_VER}
+COPY --from=luarocks /tmp/libs /usr/lib
+RUN true # workaround for builds without docker_buildkit, as the previous copy layer might be empty
+COPY --from=luarocks /tmp/fonts /root/.glua/resource/fonts
+                                                                                                              # sdl2_ttf is ~10mb?
+RUN if [ -f /usr/local/lib/lua/${LUA_VER}/SDL.so ]; then apk add --no-cache sdl2 sdl2_image sdl2_mixer sdl2_net sdl2_ttf; fi; \
+    if [ -f /usr/local/lib/lua/${LUA_VER}/zlib.so ]; then apk add --no-cache zlib; fi; \
+    if [ -f /usr/local/lib/lua/${LUA_VER}/luasql/sqlite3.so ]; then apk add --no-cache sqlite-libs; fi; \
+    if [ -f /usr/local/lib/lua/${LUA_VER}/luasql/mysql.so ]; then apk add --no-cache mariadb-connector-c; fi;
+
+
+ENTRYPOINT ["/usr/local/bin/lua"]
+

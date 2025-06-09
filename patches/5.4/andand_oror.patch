@@ -1,0 +1,20 @@
+diff '--color=auto' -ur 3/llex.c src/llex.c
+--- 3/llex.c	2025-03-09 23:08:43.007888176 +0100
++++ src/llex.c	2025-03-09 23:23:08.963014595 +0100
+@@ -542,6 +542,16 @@
+         if (check_next1(ls, ':')) return TK_DBCOLON;  /* '::' */
+         else return ':';
+       }
++      case '&': {
++        next(ls);
++        if (check_next1(ls, '&')) return TK_AND;  /* '&&' */
++        else return '&';
++      }
++      case '|': {
++        next(ls);
++        if (check_next1(ls, '|')) return TK_OR;  /* '||' */
++        else return '|';
++      }
+       case '"': case '\'': {  /* short literal strings */
+         read_string(ls, ls->current, seminfo);
+         return TK_STRING;

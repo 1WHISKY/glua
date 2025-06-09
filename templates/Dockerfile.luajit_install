@@ -1,0 +1,14 @@
+RUN apk update && apk add gcc musl-dev make git patch
+RUN git clone https://luajit.org/git/luajit.git
+ADD patches/luajit luajit/src/patches
+
+RUN cd luajit/src && \
+    patch < patches/continue.patch && \
+    patch < patches/c_comments.patch && \
+    patch < patches/excl_not.patch && \
+    patch < patches/andand_oror.patch
+
+RUN cd luajit && \
+    make -j16 && \
+    make install && \
+    cp src/luajit /tmp/lua

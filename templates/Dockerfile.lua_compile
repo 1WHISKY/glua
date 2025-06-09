@@ -1,0 +1,1 @@
+RUN find /usr/local/share/lua/${LUA_VER}/ -type f -name "*.lua" -exec luac -o {} {} \;

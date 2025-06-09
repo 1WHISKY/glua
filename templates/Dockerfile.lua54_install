@@ -1,0 +1,15 @@
+RUN apk update && apk add gcc make patch curl musl-dev git
+RUN curl -L -R -O https://www.lua.org/ftp/lua-5.4.7.tar.gz && tar zxf lua-*.tar.gz
+ADD patches/5.4 /tmp/patches
+
+RUN cd lua-*/src && mv /tmp/patches . && \
+    patch < patches/continue.patch && \
+    patch < patches/c_comments.patch && \
+    patch < patches/excl_not.patch && \
+    patch < patches/andand_oror.patch
+
+RUN cd lua-* && \
+    make -j16 && \
+    make install && \
+    cp src/lua /tmp/lua
+

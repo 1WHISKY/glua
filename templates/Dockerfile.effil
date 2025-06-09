@@ -1,0 +1,3 @@
+# threading
+RUN apk add clang
+RUN luarocks install effil

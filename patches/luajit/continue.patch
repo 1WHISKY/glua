@@ -1,0 +1,198 @@
+diff '--color=auto' -ur lj_errmsg.h lj_errmsg.h
+--- lj_errmsg.h	2025-02-23 00:48:53.305920459 +0100
++++ lj_errmsg.h	2025-02-23 00:50:34.616174970 +0100
+@@ -143,6 +143,7 @@
+ ERRDEF(XLUNDEF,	"undefined label " LUA_QS)
+ ERRDEF(XLDUP,	"duplicate label " LUA_QS)
+ ERRDEF(XGSCOPE,	"<goto %s> jumps into the scope of local " LUA_QS)
++ERRDEF(XCONTINUE,	"no loop to continue")
+ 
+ /* Bytecode reader errors. */
+ ERRDEF(BCFMT,	"cannot load incompatible bytecode")
+diff '--color=auto' -ur lj_lex.h lj_lex.h
+--- lj_lex.h	2025-02-23 00:48:53.306887403 +0100
++++ lj_lex.h	2025-02-23 00:52:23.545353594 +0100
+@@ -13,7 +13,7 @@
+ 
+ /* Lua lexer tokens. */
+ #define TKDEF(_, __) \
+-  _(and) _(break) _(do) _(else) _(elseif) _(end) _(false) \
++  _(and) _(break) _(continue) _(do) _(else) _(elseif) _(end) _(false) \
+   _(for) _(function) _(goto) _(if) _(in) _(local) _(nil) _(not) _(or) \
+   _(repeat) _(return) _(then) _(true) _(until) _(while) \
+   __(concat, ..) __(dots, ...) __(eq, ==) __(ge, >=) __(le, <=) __(ne, ~=) \
+diff '--color=auto' -ur lj_parse.c lj_parse.c
+--- lj_parse.c	2025-02-23 00:48:53.308103477 +0100
++++ lj_parse.c	2025-02-23 01:10:46.803525719 +0100
+@@ -107,8 +107,10 @@
+ #define FSCOPE_GOLA		0x04	/* Goto or label used in scope. */
+ #define FSCOPE_UPVAL		0x08	/* Upvalue in scope. */
+ #define FSCOPE_NOCLOSE		0x10	/* Do not close upvalues. */
++#define FSCOPE_CONTINUE		0x20	/* Continue used in scope. */
+ 
+ #define NAME_BREAK		((GCstr *)(uintptr_t)1)
++#define NAME_CONTINUE		((GCstr *)(uintptr_t)2)
+ 
+ /* Index into variable stack. */
+ typedef uint16_t VarIndex;
+@@ -1163,7 +1165,8 @@
+       lj_lex_error(ls, 0, LJ_ERR_XLIMC, LJ_MAX_VSTACK);
+     lj_mem_growvec(ls->L, ls->vstack, ls->sizevstack, LJ_MAX_VSTACK, VarInfo);
+   }
+-  lj_assertFS(name == NAME_BREAK || lj_tab_getstr(fs->kt, name) != NULL,
++  lj_assertFS(name == NAME_BREAK || name == NAME_CONTINUE || lj_tab_getstr(fs->kt, name) != NULL,
++
+ 	      "unanchored label name");
+   /* NOBARRIER: name is anchored in fs->kt and ls->vstack is not a GCobj. */
+   setgcref(ls->vstack[vtop].name, obj2gco(name));
+@@ -1218,6 +1221,7 @@
+ 	lj_assertLS((uintptr_t)name >= VARNAME__MAX, "expected goto name");
+ 	ls->linenumber = ls->fs->bcbase[vg->startpc].line;
+ 	lj_assertLS(strref(vg->name) != NAME_BREAK, "unexpected break");
++	lj_assertLS(strref(vg->name) != NAME_CONTINUE, "unexpected continue");
+ 	lj_lex_error(ls, 0, LJ_ERR_XGSCOPE,
+ 		     strdata(strref(vg->name)), strdata(name));
+       }
+@@ -1243,8 +1247,9 @@
+ 	    gola_patch(ls, vg, v);
+ 	  }
+       } else if (gola_isgoto(v)) {
+-	if (bl->prev) {  /* Propagate goto or break to outer scope. */
+-	  bl->prev->flags |= name == NAME_BREAK ? FSCOPE_BREAK : FSCOPE_GOLA;
++	if (bl->prev) {  /* Propagate goto or break, continue to outer scope. */
++	  bl->prev->flags |= name == NAME_BREAK ? FSCOPE_BREAK
++		: (name == NAME_CONTINUE ? FSCOPE_CONTINUE : FSCOPE_GOLA);
+ 	  v->slot = bl->nactvar;
+ 	  if ((bl->flags & FSCOPE_UPVAL))
+ 	    gola_close(ls, v);
+@@ -1252,6 +1257,8 @@
+ 	  ls->linenumber = ls->fs->bcbase[v->startpc].line;
+ 	  if (name == NAME_BREAK)
+ 	    lj_lex_error(ls, 0, LJ_ERR_XBREAK);
++	  else if (name == NAME_CONTINUE)
++	    lj_lex_error(ls, 0, LJ_ERR_XCONTINUE);
+ 	  else
+ 	    lj_lex_error(ls, 0, LJ_ERR_XLUNDEF, strdata(name));
+ 	}
+@@ -1284,6 +1291,23 @@
+   lj_assertFS(fs->freereg == fs->nactvar, "bad regalloc");
+ }
+ 
++static void fscope_loop_continue(FuncState *fs, BCPos pos)
++{
++  FuncScope *bl = fs->bl;
++  LexState *ls = fs->ls;
++
++  lj_assertFS((bl->flags & FSCOPE_LOOP), "continue not in loop");
++
++  if (!(bl->flags & FSCOPE_CONTINUE))
++    return;
++
++  bl->flags &= ~FSCOPE_CONTINUE;
++
++  MSize idx = gola_new(ls, NAME_CONTINUE, VSTACK_LABEL, pos);
++  ls->vtop = idx;
++  gola_resolve(ls, bl, idx);
++}
++
+ /* End a scope. */
+ static void fscope_end(FuncState *fs)
+ {
+@@ -1305,7 +1329,7 @@
+       return;
+     }
+   }
+-  if ((bl->flags & FSCOPE_GOLA)) {
++  if ((bl->flags & FSCOPE_GOLA) || (bl->flags & FSCOPE_CONTINUE)) {
+     gola_fixup(ls, bl);
+   }
+ }
+@@ -2367,6 +2391,13 @@
+   bcemit_INS(fs, ins);
+ }
+ 
++/* Parse 'continue' statement. */
++static void parse_continue(LexState *ls)
++{
++  ls->fs->bl->flags |= FSCOPE_CONTINUE;
++  gola_new(ls, NAME_CONTINUE, VSTACK_GOTO, bcemit_jmp(ls->fs));
++}
++
+ /* Parse 'break' statement. */
+ static void parse_break(LexState *ls)
+ {
+@@ -2445,6 +2476,7 @@
+   parse_block(ls);
+   jmp_patch(fs, bcemit_jmp(fs), start);
+   lex_match(ls, TK_end, TK_while, line);
++  fscope_loop_continue(fs, start);
+   fscope_end(fs);
+   jmp_tohere(fs, condexit);
+   jmp_patchins(fs, loop, fs->pc);
+@@ -2455,7 +2487,7 @@
+ {
+   FuncState *fs = ls->fs;
+   BCPos loop = fs->lasttarget = fs->pc;
+-  BCPos condexit;
++  BCPos condexit, iter;
+   FuncScope bl1, bl2;
+   fscope_begin(fs, &bl1, FSCOPE_LOOP);  /* Breakable loop scope. */
+   fscope_begin(fs, &bl2, 0);  /* Inner scope. */
+@@ -2463,6 +2495,7 @@
+   bcemit_AD(fs, BC_LOOP, fs->nactvar, 0);
+   parse_chunk(ls);
+   lex_match(ls, TK_until, TK_repeat, line);
++  iter = fs->pc;
+   condexit = expr_cond(ls);  /* Parse condition (still inside inner scope). */
+   if (!(bl2.flags & FSCOPE_UPVAL)) {  /* No upvalues? Just end inner scope. */
+     fscope_end(fs);
+@@ -2474,6 +2507,7 @@
+   }
+   jmp_patch(fs, condexit, loop);  /* Jump backwards if !cond. */
+   jmp_patchins(fs, loop, fs->pc);
++  fscope_loop_continue(fs, iter); /* continue statements jump to condexit. */
+   fscope_end(fs);  /* End loop scope. */
+ }
+ 
+@@ -2513,6 +2547,7 @@
+   fs->bcbase[loopend].line = line;  /* Fix line for control ins. */
+   jmp_patchins(fs, loopend, loop+1);
+   jmp_patchins(fs, loop, fs->pc);
++  fscope_loop_continue(fs, loopend); /* continue statements jump to loopend. */
+ }
+ 
+ /* Try to predict whether the iterator is next() and specialize the bytecode.
+@@ -2556,7 +2591,7 @@
+   BCReg nvars = 0;
+   BCLine line;
+   BCReg base = fs->freereg + 3;
+-  BCPos loop, loopend, exprpc = fs->pc;
++  BCPos loop, loopend, iter, exprpc = fs->pc;
+   FuncScope bl;
+   int isnext;
+   /* Hidden control variables. */
+@@ -2583,11 +2618,12 @@
+   fscope_end(fs);
+   /* Perform loop inversion. Loop control instructions are at the end. */
+   jmp_patchins(fs, loop, fs->pc);
+-  bcemit_ABC(fs, isnext ? BC_ITERN : BC_ITERC, base, nvars-3+1, 2+1);
++  iter = bcemit_ABC(fs, isnext ? BC_ITERN : BC_ITERC, base, nvars-3+1, 2+1);
+   loopend = bcemit_AJ(fs, BC_ITERL, base, NO_JMP);
+   fs->bcbase[loopend-1].line = line;  /* Fix line for control ins. */
+   fs->bcbase[loopend].line = line;
+   jmp_patchins(fs, loopend, loop+1);
++  fscope_loop_continue(fs, iter); /* continue statements jump to iter. */
+ }
+ 
+ /* Parse 'for' statement. */
+@@ -2678,6 +2714,10 @@
+   case TK_return:
+     parse_return(ls);
+     return 1;  /* Must be last. */
++  case TK_continue:
++    lj_lex_next(ls);
++    parse_continue(ls);
++    break;  /* Must be last in Lua 5.1. */
+   case TK_break:
+     lj_lex_next(ls);
+     parse_break(ls);
