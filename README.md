@@ -25,7 +25,7 @@ docker run --rm -it -v $PWD:/app:ro -w /app glua examples/timers.lua
 ```
 
 ## Documentation
-See the [wiki](wiki) for details about ported functions and added functionality, aswell as how to use each function.
+See the [wiki](../../wiki) for details about ported functions and added functionality, aswell as how to use each function.
 
 ## Examples
 For more examples see the [examples/](examples) folder
@@ -34,8 +34,13 @@ Timers
 ```lua
 require("glua")
 
-timer.Create("timer_1", 1,5,function() print(CurTime(), "Timer") end)
-timer.Simple(2, function() print(CurTime(), "Simple timer") end)
+timer.Create("timer_1", 1, 5, function()
+  print(CurTime(), "Timer")
+end)
+
+timer.Simple(2, function()
+  print(CurTime(), "Simple timer")
+end)
 
 print("Running timers...")
 async.Loop()
