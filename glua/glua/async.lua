@@ -140,11 +140,6 @@ function async.Loop()
     end
 
     if console then console.Disable() end
-
-    if true then    // terminate after main event loop is done. not sure if this is unintuitive
-        hook.Run("ShutDown")
-        os.exit()
-    end
 end
 
 function async.Sleep(delay)
