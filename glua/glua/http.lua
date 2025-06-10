@@ -673,6 +673,10 @@ function http.Server(settings)
         // this is not a ws endpoint (or request), handle normal request
         local res = onrequest(req)
 
+        if !istable(res) then
+            error("no response provided")
+        end
+
         if stream.state == "idle" then
             return
         end
