@@ -708,7 +708,7 @@ function http.Server(settings)
             end
         end
 
-        res_headers:upsert("content-type", res.contenttype or "text/plain")
+        res_headers:upsert("content-type", res.contenttype or "text/html")
 
         stream:write_headers(res_headers, !isstring(res.body))
         if isstring(res.body) then
