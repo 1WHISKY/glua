@@ -722,7 +722,7 @@ function http.Server(settings)
 
     local onerr = function(srv, stream, errorfun, errorstr)
         if errorfun == "accept" then
-            error("accept: " .. tostring(errorstr))  // if we dont error out here the server will call the onerror function in a infinite loop
+            srv:close()
         end
 
         if onerror == nil then return end
