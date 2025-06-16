@@ -3,7 +3,7 @@ ARG LUAROCKS_VER=3.12.0
 ARG LUA_VER=5.1    # where lua modules are installed
 
 
-FROM alpine:3.20 as lua
+FROM alpine:3.20 AS lua
 RUN apk update && apk add gcc musl-dev make git patch
 RUN git clone https://luajit.org/git/luajit.git
 ADD patches/luajit luajit/src/patches
@@ -20,7 +20,7 @@ RUN cd luajit && \
     cp src/luajit /tmp/lua
 
 
-FROM lua as luarocks
+FROM lua AS luarocks
 ARG LUAROCKS_VER
 RUN apk add wget cmake && \
     wget https://luarocks.org/releases/luarocks-${LUAROCKS_VER}.tar.gz && \
