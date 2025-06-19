@@ -673,6 +673,10 @@ function http.Server(settings)
         // this is not a ws endpoint (or request), handle normal request
         local res = onrequest(req)
 
+        if !istable(res) then
+            error("no response provided")
+        end
+
         if stream.state == "idle" then
             return
         end
@@ -708,7 +712,7 @@ function http.Server(settings)
             end
         end
 
-        res_headers:upsert("content-type", res.contenttype or "text/plain")
+        res_headers:upsert("content-type", res.contenttype or "text/html")
 
         stream:write_headers(res_headers, !isstring(res.body))
         if isstring(res.body) then
@@ -718,7 +722,7 @@ function http.Server(settings)
 
     local onerr = function(srv, stream, errorfun, errorstr)
         if errorfun == "accept" then
-            error("accept: " .. tostring(errorstr))  // if we dont error out here the server will call the onerror function in a infinite loop
+            srv:close()
         end
 
         if onerror == nil then return end
