@@ -82,13 +82,30 @@ function async.Available()
     return ok
 end
 
+local loop_queue = {}
+
 function async.Add(fun)
-    if !async.Init() then return false end
-    return loop:wrap(fun)
+    if !isfunction(fun) then error("bad argument #1 to 'Add' (function expected, got " .. type(fun) .. ")") end
+
+    if init_successful then
+        return loop:wrap(fun) and true or false
+    end
+
+    if initialized and !init_successful then return false end
+
+    // cqueues has not been loaded yet, queue the task for later instead
+    table.insert(loop_queue, fun)
+    return true
 end
 
 function async.Loop()
     if !async.Init() then return false end
+
+    for k, v in pairs(loop_queue) do
+        loop:wrap(v)
+    end
+
+    loop_queue = {}
 
     if never_exit then
         loop:wrap(function() async.Sleep(math.huge) end)
