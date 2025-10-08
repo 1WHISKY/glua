@@ -329,124 +329,8 @@ function GetConVar_Internal(name)
     return convars[name]
 end
 
-function game.ConsoleCommand(cmd)   // replaced below
-    if !isstring(cmd) then error("bad argument #1 to 'ConsoleCommand' (string expected, got " .. type(cmd) .. ")") end
-end
-
 function console.Disable()   // replaced below
-end
-
-
-
-// stuff required for stdin console, everything below may not run
-if !async.Available() then return end
-local ao = async.DontErrorOnFailure(true)
-
-if !async.Init() then
     active = false
-    async.DontErrorOnFailure(ao)
-    return
-end
-
-local ok, sys = pcall(require, "system")
-if !ok then
-   active = false
-   return
-end
-
-if !sys.isatty(io.stdin) or !sys.isatty(io.stdout) then
-    active = false
-   return
-end
-
-
-local rows, cols
-
-local function terminal_size()
-    local r, c = sys.termsize()
-    if !isnumber(r) or !isnumber(c) then return end
-
-    return r, c
-end
-
-local prompt = "> "
-local prompt_len = 0
-local prompt_printed = false
-local str = ""
-local pos = 0 // how far to move the cursor to the left
-local dont_clear = false
-
-local print_o = print
-local iow = io.write
-
-local function cleanup()
-    local len = utf8.len(str)
-    local len_up = len + prompt_len - pos
-
-    if  pos == 0 and (len + prompt_len) % cols == 0 then
-        len_up = len_up - 1
-    end
-
-    local up = len_up / cols
-
-    for i = 1, up do
-        iow("\27[1A")   // go up 1 line
-    end
-
-    iow("\r")
-    for i = 1, len  + prompt_len do
-        iow(" ")
-    end
-    iow("\r")
-
-    up = ( len + prompt_len - 1 ) / cols
-
-    for i = 1, up do
-        iow("\27[1A")
-    end
-
-end
-
-local function print_function(fun, ...)
-        if !dont_clear then
-            cleanup()
-        end
-
-        local len = utf8.len(str)
-        local res = fun(...)
-
-        if !dont_clear then
-            // print input
-            iow("\r", prompt, str)
-            prompt_printed = true
-        end
-
-        // position cursor
-        local last = (len + prompt_len) % cols     // chars on last line
-        local up_extra = pos % cols > last and last > 0 and 1 or 0
-
-        up = pos / cols
-        if (pos % cols) == 0 and (len + prompt_len) % cols == 0 then
-            up = up - 1
-        end
-
-        for i = 1, up + up_extra do
-            iow("\27[1A")
-        end
-
-        iow("\r")
-        local right = ((len + prompt_len - pos) % cols)
-        if pos == 0 and right == 0 then right = cols end
-
-        if !dont_clear then
-            for i = 1, right do
-                iow("\27\91\67")
-            end
-        end
-
-        dont_clear = false
-        io.flush()
-        return res
 end
 
 local function parse_args(cmd)
@@ -570,31 +454,136 @@ function game.ConsoleCommand(cmd)
     end
 end
 
-local buf = {}
-local history = {}
-local history_pos = 1
-local str_o
-local special_characters = "!\"§$%&/()=?`'{[]}\\#*~+-_.:,;°^<>|@€"
-local whitespace_characters = " \t"
-
-local control = {
-    "\27\91\65",
-    "\27\91\66",
-    "\27\91\67",
-    "\27\91\68",
-    "\27\91\51\126",
-    "\27\91\70",
-    "\27\91\72",
-    "\27\91\49\59\51\68",
-    "\27\91\49\59\53\68",
-    "\27\91\49\59\53\67",
-    "\27\91\49\59\51\67",
-    "\27\127"
-}
 
 
+// stuff required for stdin console, everything below may not run
 async.Add(function()
     if !active then return end
+
+    local ok, sys = pcall(require, "system")
+    if !ok then
+    active = false
+    return
+    end
+
+    if !sys.isatty(io.stdin) or !sys.isatty(io.stdout) then
+        active = false
+    return
+    end
+
+
+    local rows, cols
+
+    local function terminal_size()
+        local r, c = sys.termsize()
+        if !isnumber(r) or !isnumber(c) then return end
+
+        return r, c
+    end
+
+    local prompt = "> "
+    local prompt_len = 0
+    local prompt_printed = false
+    local str = ""
+    local pos = 0 // how far to move the cursor to the left
+    local dont_clear = false
+
+    local print_o = print
+    local iow = io.write
+
+    local function cleanup()
+        local len = utf8.len(str)
+        local len_up = len + prompt_len - pos
+
+        if  pos == 0 and (len + prompt_len) % cols == 0 then
+            len_up = len_up - 1
+        end
+
+        local up = len_up / cols
+
+        for i = 1, up do
+            iow("\27[1A")   // go up 1 line
+        end
+
+        iow("\r")
+        for i = 1, len  + prompt_len do
+            iow(" ")
+        end
+        iow("\r")
+
+        up = ( len + prompt_len - 1 ) / cols
+
+        for i = 1, up do
+            iow("\27[1A")
+        end
+
+    end
+
+    local function print_function(fun, ...)
+            if !dont_clear then
+                cleanup()
+            end
+
+            local len = utf8.len(str)
+            local res = fun(...)
+
+            if !dont_clear then
+                // print input
+                iow("\r", prompt, str)
+                prompt_printed = true
+            end
+
+            // position cursor
+            local last = (len + prompt_len) % cols     // chars on last line
+            local up_extra = pos % cols > last and last > 0 and 1 or 0
+
+            up = pos / cols
+            if (pos % cols) == 0 and (len + prompt_len) % cols == 0 then
+                up = up - 1
+            end
+
+            for i = 1, up + up_extra do
+                iow("\27[1A")
+            end
+
+            iow("\r")
+            local right = ((len + prompt_len - pos) % cols)
+            if pos == 0 and right == 0 then right = cols end
+
+            if !dont_clear then
+                for i = 1, right do
+                    iow("\27\91\67")
+                end
+            end
+
+            dont_clear = false
+            io.flush()
+            return res
+    end
+
+    local buf = {}
+    local history = {}
+    local history_pos = 1
+    local str_o
+    local special_characters = "!\"§$%&/()=?`'{[]}\\#*~+-_.:,;°^<>|@€"
+    local whitespace_characters = " \t"
+
+    local control = {
+        "\27\91\65",
+        "\27\91\66",
+        "\27\91\67",
+        "\27\91\68",
+        "\27\91\51\126",
+        "\27\91\70",
+        "\27\91\72",
+        "\27\91\49\59\51\68",
+        "\27\91\49\59\53\68",
+        "\27\91\49\59\53\67",
+        "\27\91\49\59\51\67",
+        "\27\127"
+    }
+
+
 
     prompt_len = utf8.len(prompt)
 
@@ -657,6 +646,23 @@ async.Add(function()
         cleanup()
     end)
 
+    function console.Disable()
+        if !active then return end
+        active = false
+
+        hook.Remove("TerminalResized", "console_resize")
+        hook.Remove("Terminate", "console_cleanup")
+
+        if prompt_printed then
+            cleanup()
+            io.flush()
+        end
+
+        print = print_o
+        io.write = iow
+    end
+
+
     if !prompt_printed then
         iow(prompt, str)
         io.flush()
@@ -685,7 +691,6 @@ async.Add(function()
             buf = {}
         end
 
-        //if char == "\t" then char = "    " end
         if char == "\t" then
             if pos != 0 then continue end
             if str == "" then continue end
@@ -966,20 +971,4 @@ async.Add(function()
     end
 
 end)
-
-function console.Disable()
-    if !active then return end
-    active = false
-
-    hook.Remove("TerminalResized", "console_resize")
-    hook.Remove("Terminate", "console_cleanup")
-
-    if prompt_printed then
-        cleanup()
-        io.flush()
-    end
-
-    print = print_o
-    io.write = iow
-end
 
