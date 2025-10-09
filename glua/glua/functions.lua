@@ -210,28 +210,30 @@ function MsgC(...)  // maybe add support for colors?
 end
 
 //CurTime
-local curtime_function = nil
-local curtime_warned = true
-local curtime_cqueues_ok, curtime_cqueues = pcall(require, "cqueues")
-
-if !curtime_cqueues_ok then
-    curtime_function = os.time
-    curtime_warned = false
-else
-    curtime_function = curtime_cqueues.monotime
-end
-
-local curtime_start = curtime_function()
+local curtime_warned = false
+local ost_start = os.time()
+local mt_start
+local mt
 
 function CurTime()
+    if mt_start then
+        return mt() - mt_start
+    end
+
+    if package.loaded.cqueues and package.loaded.cqueues.monotime then
+        mt = package.loaded.cqueues.monotime
+        mt_start = mt() - (os.time() - ost_start)
+
+        return mt() - mt_start
+    end
+
     if !curtime_warned then
-        print("warning: CurTime couldn't load the cqueues module. sub-second precision may not be available")
+        print("warning: CurTime sub-second precision may not be available. Use async.Init() to load the required modules")
         curtime_warned = true
     end
 
-    return curtime_function() - curtime_start
+    return os.time() - ost_start
 end
-
 
 SysTime = CurTime
 RealTime = CurTime

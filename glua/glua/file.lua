@@ -620,8 +620,9 @@ function file.Find(name, gamepath, sorting)
         if !match(p2, file) then continue end
 
         local f = dir .. "/" .. file
-        local attr = lfs.attributes (f)
+        local attr = lfs.attributes(f)
 
+        if !attr then continue end
         if attr.mode != "directory" and attr.mode != "file" then continue end
 
         table.insert(list, {

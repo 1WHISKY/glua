@@ -70,7 +70,8 @@ COPY --from=luarocks /tmp/fonts /root/.glua/resource/fonts
 RUN if [ -f /usr/local/lib/lua/${LUA_VER}/SDL.so ]; then apk add --no-cache sdl2 sdl2_image sdl2_mixer sdl2_net sdl2_ttf; fi; \
     if [ -f /usr/local/lib/lua/${LUA_VER}/zlib.so ]; then apk add --no-cache zlib; fi; \
     if [ -f /usr/local/lib/lua/${LUA_VER}/luasql/sqlite3.so ]; then apk add --no-cache sqlite-libs; fi; \
-    if [ -f /usr/local/lib/lua/${LUA_VER}/luasql/mysql.so ]; then apk add --no-cache mariadb-connector-c; fi;
+    if [ -f /usr/local/lib/lua/${LUA_VER}/luasql/mysql.so ]; then apk add --no-cache mariadb-connector-c; fi; \
+    if [ ! -f /usr/local/lib/lua/${LUA_VER}/SDL.so ]; then mv /usr/local/share/lua/${LUA_VER}/glua/glua/gui_minimal.lua /usr/local/share/lua/${LUA_VER}/glua/glua/gui.lua ; fi;
 
 
 ENTRYPOINT ["/usr/local/bin/lua"]
