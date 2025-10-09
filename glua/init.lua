@@ -169,6 +169,7 @@ Material = material_o
 
 if _G["math.ease"] then
     math.ease = _G["math.ease"]
+    _G["math.ease"] = nil
 end
 
 include("glua/postinit.lua")
