@@ -1,5 +1,13 @@
-local json = include("libs/rxi_jsondotlua.lua")
+local json
+local initialized = false
 util = util or {}
+
+local function init()
+    if initialized then return json and true or false end
+
+    json = include("libs/rxi_jsondotlua.lua")
+    return json and true or false
+end
 
 local function fix_table(tbl, done, started)
     local new = {}
@@ -111,7 +119,7 @@ end
 
 function util.TableToJSON(table, pretty)
     if !istable(table) then error("bad argument #1 to 'TableToJSON' (table expected, got " .. type(table) .. ")") end
-    if !json then return nil end
+    if !init() then return nil end
 
     local res = json.encode(fix_table(table))
     if pretty then res = pretty_print(res) end
@@ -140,7 +148,7 @@ end
 
 function util.JSONToTable(jsn, ignoreLimits, ignoreConversions)
     if !isstring(jsn) then error("bad argument #1 to 'JSONToTable' (string expected, got " .. type(jsn) .. ")") end
-    if !json then return nil end
+    if !init() then return nil end
 
     local ok, res = pcall(json.decode, jsn)
     if !ok then return nil, res end

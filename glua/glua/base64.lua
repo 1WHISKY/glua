@@ -1,11 +1,19 @@
-local b64 = include("libs/iskolbin_lbase64.lua")
+local b64
+local initialized = false
 util = util or {}
+
+local function init()
+    if initialized then return b64 and true or false end
+
+    b64 = include("libs/iskolbin_lbase64.lua")
+    return b64 and true or false
+end
 
 local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
 
 function util.Base64Decode(str)
     if !isstring(str) then error("bad argument #1 to 'Base64Decode' (string expected, got " .. type(str) .. ")") end
-    if !b64 then return nil end
+    if !init() then return nil end
 
     local ok, res = pcall(b64.decode, str)
     if ok then return res end
@@ -32,7 +40,7 @@ end
 
 function util.Base64Encode(str, inline)
     if !isstring(str) then error("bad argument #1 to 'Base64Encode' (string expected, got " .. type(str) .. ")") end
-    if !b64 then return nil end
+    if !init() then return nil end
 
     local encoded = b64.encode(str)
     if inline then return encoded end
