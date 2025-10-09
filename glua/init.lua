@@ -111,11 +111,32 @@ local material_o = Material
 jit = jit or {}
 
 
-local blacklist = { "drive" }
+local blacklist = {
+    "drive", // these are at the wrong location
+
+    // these technically work fine but add nothing of value for us
+    "extensions/client/panel.lua",
+    "extensions/entity.lua",
+    "util/worldpicker.lua",
+    "extensions/player.lua",
+    "util/workshop_files.lua",
+    "util/client.lua",
+    "modules/construct.lua",
+    "modules/constraint.lua",
+    "modules/duplicator.lua",
+    "modules/undo.lua",
+    "modules/team.lua",
+    "modules/numpad.lua",
+    "modules/player_manager.lua",
+    "modules/saverestore.lua",
+}
 
 function include(path)
     for k, v in pairs(blacklist) do
-        if string.find(path, v) then return end
+        if string.find(path, v) then
+            //print("skipped", path)
+            return
+        end
     end
 
     return include_o(path)
