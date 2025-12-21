@@ -185,20 +185,16 @@ function file.IsDir(name, gamepath)
     return dir_raw( paths[gamepath] .. name)
 end
 
-function file.IsSymlink(name, gamepath)
-    if !isstring(name) then error("bad argument #1 to 'IsSymlink' (string expected, got " .. type(name) .. ")") end
-    if !isstring(gamepath) and gamepath != nil then error("bad argument #2 to 'IsSymlink' (string expected, got " .. type(gamepath) .. ")") end
+function file.Details(name, gamepath)
+    if !isstring(name) then error("bad argument #1 to 'Details' (string expected, got " .. type(name) .. ")") end
+    if !isstring(gamepath) and gamepath != nil then error("bad argument #2 to 'Details' (string expected, got " .. type(gamepath) .. ")") end
 
     gamepath = gamepath and string.upper(gamepath) or gamepath_default
     if !initialize(gamepath) then return nil end
     if !validate(name, gamepath) then return nil end
-    if !lfs or system.IsWindows() then return nil end
+    if !lfs then return nil end
 
-    local res = lfs.symlinkattributes(paths[gamepath] .. name)
-    if !res then return nil end
-    if !res.target then return false end
-
-    return res.target
+    return lfs.symlinkattributes(paths[gamepath] .. name)
 end
 
 function file.Delete(name, gamepath)
@@ -621,6 +617,7 @@ function file.Find(name, gamepath, sorting)
 
     local dirs = {}
     local files = {}
+    local extra = {}
 
     local p1 = string.match(name, ".*/")    // part before last /
     local p2 = string.sub(name, string.len(p1 or "") + 1)   // part after last /
@@ -639,11 +636,10 @@ function file.Find(name, gamepath, sorting)
         local attr = lfs.attributes(f)
 
         if !attr then continue end
-        if attr.mode != "directory" and attr.mode != "file" then continue end
 
         table.insert(list, {
             file = file,
-            dir = attr.mode == "directory",
+            mode = attr.mode,
             date = attr.modification
         })
     end
@@ -651,14 +647,16 @@ function file.Find(name, gamepath, sorting)
     table.SortByMember(list, sort_name and "file" or "date", sort_asc and true or false)
 
     for k,v in pairs(list) do
-        if v.dir then
+        if v.mode == "directory" then
             table.insert(dirs, v.file)
-        else
+        elseif v.mode == "file" then
             table.insert(files, v.file)
+        else
+            table.insert(extra, v.file)
         end
     end
 
-    return files, dirs
+    return files, dirs, extra
 end
 
 
