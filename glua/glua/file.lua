@@ -621,6 +621,7 @@ function file.Find(name, gamepath, sorting)
 
     local dirs = {}
     local files = {}
+    local extra = {}
 
     local p1 = string.match(name, ".*/")    // part before last /
     local p2 = string.sub(name, string.len(p1 or "") + 1)   // part after last /
@@ -639,11 +640,10 @@ function file.Find(name, gamepath, sorting)
         local attr = lfs.attributes(f)
 
         if !attr then continue end
-        if attr.mode != "directory" and attr.mode != "file" then continue end
 
         table.insert(list, {
             file = file,
-            dir = attr.mode == "directory",
+            mode = attr.mode,
             date = attr.modification
         })
     end
@@ -651,14 +651,16 @@ function file.Find(name, gamepath, sorting)
     table.SortByMember(list, sort_name and "file" or "date", sort_asc and true or false)
 
     for k,v in pairs(list) do
-        if v.dir then
+        if v.mode == "directory" then
             table.insert(dirs, v.file)
-        else
+        elseif v.mode == "file" then
             table.insert(files, v.file)
+        else
+            table.insert(extra, v.file)
         end
     end
 
-    return files, dirs
+    return files, dirs, extra
 end
 
 
